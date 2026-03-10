@@ -1,0 +1,1004 @@
+<!-- index.html - COMPLETO RISCritto -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confronto Classifiche: Reale vs Fantasy</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 1200px;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        h1 { color: #333; margin-bottom: 10px; text-align: center; }
+        .subtitle { color: #666; margin-bottom: 30px; text-align: center; font-size: 14px; }
+
+        /* NUOVA SEZIONE INFO */
+        .info-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+
+        .info-section h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .info-content {
+            font-size: 14px;
+            line-height: 1.6;
+            opacity: 0.95;
+        }
+
+        .info-content ul {
+            margin-top: 10px;
+            margin-left: 20px;
+        }
+
+        .info-content li {
+            margin-bottom: 5px;
+        }
+
+        .upload-section {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            border: 2px dashed #667eea;
+        }
+
+        .upload-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 16px;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6); }
+        #fileInput { display: none; }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .result { margin-top: 30px; }
+        
+        .result.success {
+            background: #d4edda;
+            color: #155724;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #c3e6cb;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* STATS RIASSUNTIVE - CENTRATE */
+        .summary-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .summary-main {
+            display: flex;
+            gap: 40px;
+            justify-content: center;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+
+        .summary-item {
+            text-align: center;
+        }
+
+        .summary-value {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .summary-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            opacity: 0.9;
+        }
+
+        .lega-name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* LUCK BOX */
+        .luck-box {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.3);
+            flex-wrap: wrap;
+            width: 100%;
+        }
+
+        .luck-item {
+            background: rgba(255,255,255,0.2);
+            padding: 20px 30px;
+            border-radius: 10px;
+            text-align: center;
+            min-width: 150px;
+        }
+
+        .luck-title {
+            font-size: 14px;
+            text-transform: uppercase;
+            opacity: 0.9;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .luck-team {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .luck-value {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .luck-positive { color: #90d092; }
+        .luck-negative { color: #ea8a8a; }
+        .luck-gold { color: #f2d42d; }
+
+        /* SEZIONI - TUTTE CON STESSI COLORI AZZURRO */
+        .section-box {
+            margin: 30px 0;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .section-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-subtitle {
+            font-size: 13px;
+            opacity: 0.9;
+            font-weight: normal;
+        }
+
+        .section-content {
+            background: white;
+            padding: 20px;
+        }
+
+        /* COLLAPSIBLE PER LE ALTRE SEZIONI */
+        .collapsible-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .collapsible-header:hover {
+            background: linear-gradient(135deg, #5a6fd6 0%, #6a4190 100%);
+        }
+
+        .collapsible-arrow {
+            font-size: 24px;
+            transition: transform 0.3s ease;
+        }
+
+        .collapsible-arrow.open {
+            transform: rotate(180deg);
+        }
+
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease;
+            background: white;
+        }
+
+        .collapsible-content.open {
+            max-height: 3000px;
+        }
+
+        .collapsible-inner {
+            padding: 20px;
+        }
+
+        /* FORM INVERTI */
+        .inverti-form {
+            background: #e8eaf6;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: #3f51b5;
+            min-width: 100px;
+        }
+
+        .form-select {
+            padding: 10px 15px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-size: 14px;
+            min-width: 150px;
+            background: white;
+        }
+
+        .btn-container {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .btn-calculate {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-calculate:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-calculate:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .swap-icon {
+            font-size: 24px;
+            color: #667eea;
+        }
+
+        /* TABELLE - TUTTE CON STESSO STILE AZZURRO */
+        .classifica-container {
+            overflow-x: auto;
+        }
+
+        .classifica-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            background: white;
+        }
+
+        .classifica-table thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .classifica-table th {
+            padding: 12px 6px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+
+        .classifica-table td {
+            padding: 10px 6px;
+            text-align: center;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .classifica-table tbody tr:hover { background: #e3f2fd; }
+
+        .pos-cell {
+            font-weight: bold;
+            font-size: 14px;
+            width: 35px;
+        }
+
+        .pos-1 { background: #e1d494; color: #ac940b; }
+        .pos-2 { background: #e0e7ec; color: #858d92; }
+        .pos-3 { background: #cfab70; color: #5e4111; }
+
+        .team-name {
+            font-weight: 600;
+            text-align: center;
+            color: #2a5298;
+            min-width: 100px;
+        }
+
+        .punti-reali {
+            background: #d0e9ff;
+            color: #0c3f6b;
+            font-weight: bold;
+            font-size: 12px;
+            border-radius: 4px;
+        }
+
+        .punti-fantasy {
+            background: #fbe3cf;
+            color: #815509;
+            font-weight: bold;
+            font-size: 13px;
+            border-radius: 4px;
+        }
+
+        .punti-invertiti {
+            background: #fff3e0;
+            color: #e65100;
+            font-weight: bold;
+            font-size: 14px;
+            border-radius: 4px;
+        }
+
+        .medie-gol {
+            background: #f2fbff;
+            color: #000000;
+            font-weight: bold;
+            font-size: 13px;
+        }
+
+        .saldo-positive { font-size: 14px; color: #2c8630; font-weight: bold; }
+        .saldo-negative { font-size: 14px; color: #b90b0b; font-weight: bold; }
+        .saldo-neutral { font-size: 14px; color: #757575; }
+
+        .arrow-up::before { content: "↑ "; color: #2e7d32; }
+        .arrow-down::before { content: "↓ "; color: #b90b0b; }
+        .arrow-neutral::before { content: "→ "; color: #757575; }
+
+        .highlight-swap {
+            background: #e8eaf6 !important;
+            font-weight: bold;
+        }
+
+        /* Titolo tabella invertita */
+        .inverti-title {
+            text-align: center;
+            font-size: 22px;
+            font-weight: bold;
+            color: #3f51b5;
+            margin-bottom: 20px;
+        }
+
+        /* Legend */
+        .legend-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            border-left: 3px solid #667eea;
+        }
+
+        .soglia-highlight {
+            background: #fff3e0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+            color: #e65100;
+        }
+
+        /* Download */
+        .download-section {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #e9ecef;
+            flex-wrap: wrap;
+        }
+
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .download-btn.reale { background: #e8f5e9; color: #2e7d32; }
+        .download-btn.fantasy { background: #e3f2fd; color: #1565c0; }
+        .download-btn.confronto { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .download-btn.forza {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>FantaSfiga</h1>
+        
+        <!-- NUOVA SEZIONE INFO -->
+        <div class="info-section">
+            <h2>ℹ️ Informazioni</h2>
+            <div class="info-content">
+                <p>Questa pagina permette di esplorare la sfiga dovuta al calendario e alle soglie-gol nella tua fantalega.</p>
+                <p style="margin-top: 10px;"><strong>Come funziona?</strong></p>
+                <p style="margin-top: 5px;">Vai sul sito di Leghe Fantacalcio,
+                    entra nella sezione "CALENDARIO" dalla pagina della tua lega e scarica il file excel cliccando
+                    sul tasto "SCARICA ORA".</p>
+                <p style="margin-top: 5px;">Clicca su "Carica File" nella sezione sotto e seleziona l'excel
+                    scaricato prima.</p>
+                <p style="margin-top: 5px;">Una volta caricato il file, vedrai:</p>
+                <ul>
+                    <li>La classifica corretta per il fattore sfiga calendario-soglie</li>
+                    <li>Il numero di gol che subisci rispetto al numero di gol segnati nelle altre partite</li>
+                    <li>La classifica invertendo i calendari di due squadre</li>
+                </ul>
+                <p style="text-decoration: underline; margin-top: 10px; font-size: 12px; opacity: 0.8;">
+                    Carica il file Excel con il calendario del tuo campionato per iniziare l'analisi.</p>
+            </div>
+        </div>
+        
+        <div class="upload-section" id="uploadSection">
+            <p style="margin-bottom: 15px; color: #666;" id="uploadText">Carica il calendario Excel</p>
+            <button class="upload-btn" onclick="document.getElementById('fileInput').click()" id="uploadBtn">
+                📁 Carica File
+            </button>
+            <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="uploadFile(this)">
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px; color: #666;">Calcolo classifiche...</p>
+        </div>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        let squadreDisponibili = [];
+        let dataCaricata = null;
+        let fileCaricato = false;
+
+        function uploadFile(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').innerHTML = '';
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loading').style.display = 'none';
+                
+                if (data.success) {
+                    dataCaricata = data;
+                    squadreDisponibili = data.stats.elenco_squadre || [];
+                    fileCaricato = true;
+                    
+                    document.getElementById('uploadText').textContent = 'Carica un altro file per analizzare una nuova lega';
+                    document.getElementById('uploadBtn').innerHTML = '📁 Carica un altro file';
+                    
+                    renderDashboard(data);
+                } else {
+                    document.getElementById('result').innerHTML = `
+                        <div class="result error">
+                            <h3>❌ Errore</h3>
+                            <p>${data.message}</p>
+                            <pre style="font-size:11px; overflow:auto; margin-top:10px;">${data.dettaglio || ''}</pre>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('result').innerHTML = `
+                    <div class="result error">
+                        <h3>❌ Errore di connessione</h3>
+                        <p>${error}</p>
+                    </div>
+                `;
+            });
+
+            input.value = '';
+        }
+
+        function renderDashboard(data) {
+            // MODIFICATO: Ordina per punti_fantasy decrescente
+            const classificaOrdinata = [...data.stats.confronto].sort((a, b) => b.punti_fantasy - a.punti_fantasy);
+            
+            // Tabella classifica comparata - MODIFICATA: rimosse Pos Reale e Pos Fanta, header centrati
+            let classificaRows = '';
+            classificaOrdinata.forEach((row, index) => {
+                const posizione = index + 1;
+                const posClass = posizione <= 3 ? `pos-${posizione}` : '';
+                const saldoPuntiClass = row.saldo_punti > 0 ? 'saldo-positive' : 
+                                       row.saldo_punti < 0 ? 'saldo-negative' : 'saldo-neutral';
+                const saldoPosClass = row.saldo_posizioni > 0 ? 'arrow-up saldo-positive' : 
+                                     row.saldo_posizioni < 0 ? 'arrow-down saldo-negative' : 'arrow-neutral saldo-neutral';
+                const saldoPosText = row.saldo_posizioni > 0 ? `+${row.saldo_posizioni}` :
+                                    row.saldo_posizioni === 0 ? '=' : `${row.saldo_posizioni}`;
+                const saldoPuntiText = row.saldo_punti > 0 ? `+${row.saldo_punti.toFixed(2)}` :
+                                      row.saldo_punti === 0 ? '0' : `${row.saldo_punti.toFixed(2)}`;
+                
+                classificaRows += `
+                    <tr>
+                        <td class="pos-cell ${posClass}">${posizione}°</td>
+                        <td class="team-name">${row.squadra}</td>
+                        <td class="punti-reali">${row.punti_reali}</td>
+                        <td class="punti-fantasy">${row.punti_fantasy.toFixed(2)}</td>
+                        <td class="${saldoPuntiClass}">${saldoPuntiText}</td>
+                        <td class="${saldoPosClass}">${saldoPosText}</td>
+                        <td>${row.vinte}-${row.pareggiate}-${row.perse}</td>
+                        <td>${row.gol_fatti}:${row.gol_subiti}</td>
+                        <td>${row.differenza_rete > 0 ? '+' : ''}${row.differenza_rete}</td>
+                    </tr>
+                `;
+            });
+
+            // Tabella forza avversari - STESSO STILE AZZURRO
+            let forzaRows = '';
+            data.stats.forza_avversari.forEach(row => {
+                const diffClass = row.difficolta_calendario > 0.5 ? 'saldo-positive' :
+                                 row.difficolta_calendario < -0.5 ? 'saldo-negative' : 'saldo-neutral';
+                const diffText = row.difficolta_calendario > 0 ? `+${row.difficolta_calendario}` : 
+                                row.difficolta_calendario === 0 ? '0' : `${row.difficolta_calendario}`;
+                
+                forzaRows += `
+                    <tr>
+                        <td class="team-name">${row.squadra}</td>
+                        <td class="medie-gol">${row.media_gol_avversari_vs_me.toFixed(2)}</td>
+                        <td class="medie-gol">${row.media_gol_avversari_altre.toFixed(2)}</td>
+                        <td style="font-size: 14px; font-weight: bold; color: ${getDifficoltaColor(row.difficolta_calendario)};">${diffText}</td>
+                    </tr>
+                `;
+            });
+
+            // Opzioni per select
+            let optionsHtml = '<option value="">Seleziona...</option>';
+            squadreDisponibili.forEach(squadra => {
+                optionsHtml += `<option value="${squadra}">${squadra}</option>`;
+            });
+
+            // Luck box
+            const luckBoxHtml = `
+                <div class="luck-box">
+                    <div class="luck-item">
+                        <div class="luck-title">🍀 più punti rubati</div>
+                        <div class="luck-team">${data.stats.piu_fortunato.squadra}</div>
+                        <div class="luck-value luck-positive">+${data.stats.piu_fortunato.saldo} punti</div>
+                    </div>
+                    <div class="luck-item">
+                        <div class="luck-title">😈 più punti persi</div>
+                        <div class="luck-team">${data.stats.piu_sfortunato.squadra}</div>
+                        <div class="luck-value luck-negative">${data.stats.piu_sfortunato.saldo} punti</div>
+                    </div>
+                    <div class="luck-item">
+                        <div class="luck-title">📈 più posizioni rubate</div>
+                        <div class="luck-team">${data.stats.piu_fortunato_pos.squadra}</div>
+                        <div class="luck-value luck-positive">+${data.stats.piu_fortunato_pos.saldo} posizioni</div>
+                    </div>
+                    <div class="luck-item">
+                        <div class="luck-title">📉 più posizioni perse</div>
+                        <div class="luck-team">${data.stats.piu_sfortunato_pos.squadra}</div>
+                        <div class="luck-value luck-negative">-${data.stats.piu_sfortunato_pos.saldo} posizioni</div>
+                    </div>
+                    <div class="luck-item">
+                        <div class="luck-title">👑 Il Vero Campione</div>
+                        <div class="luck-team">${data.stats.vero_campione.squadra}</div>
+                        <div class="luck-value luck-gold">${data.stats.vero_campione.punti} punti</div>
+                    </div>
+                </div>
+            `;
+
+            let html = `
+                <div class="result success">
+                    
+                    <!-- RIASSUNTO -->
+                    <div class="summary-box">
+                        <div class="lega-name">${data.stats.nome_lega}</div>
+                        <div class="summary-main">
+                            <div class="summary-item">
+                                <div class="summary-value">${data.stats.squadre_totali}</div>
+                                <div class="summary-label">Squadre</div>
+                            </div>
+                            <div class="summary-item">
+                                <div class="summary-value">${data.stats.giornate_totali}</div>
+                                <div class="summary-label">Giornate Giocate</div>
+                            </div>
+                            <div class="summary-item">
+                                <div class="summary-value">${data.stats.media_punti}</div>
+                                <div class="summary-label">Media Punti</div>
+                            </div>
+                        </div>
+                        ${luckBoxHtml}
+                    </div>
+
+                    <!-- PRIMA SEZIONE: CLASSIFICA COMPARATA - NON COLLASSABILE, VISIBLE IMMEDIATAMENTE -->
+                    <div class="section-box">
+                        <div class="section-header">
+                            <div class="section-title">
+                                📊✅ Classifica Corretta
+                            </div>
+                        </div>
+                        <div class="section-content">
+                            <div class="legend-box">
+                                <p style="font-size: 16px"><strong>Come funziona la classifica corretta?</strong><p><br>
+                                <p style="font-size: 14px; text-decoration: underline">Correzione calendario<p><br>
+                                • La soluzione migliore per correggere la sfiga da calendario è far sì che, in ogni giornata,<span class="soglia-highlight">tutti giochino contro tutti.</span><br>
+                                • Si sommano i punti ottenuti in tutte le partite e si dividono per il numero di partite.<br>
+                                • Esempio➞In una lega a 8, ogni giornata si giocano 7 partite.
+                                        Uno score di <strong>2 vittorie, 4 pareggi e 1 sconfitta</strong> genera <strong>10 punti</strong>, che
+                                        divisi per 7 partite danno <strong>1.43 punti corretti</strong>).<br>
+                                <p style="margin-top: 20px; font-size: 14px; text-decoration: underline">Correzione soglia gol<p><br>
+                                • Abbiamo pensato che il modo migliore per correggere la sfiga da soglia sia.. <span class="soglia-highlight">eliminare le soglie!😱</span><br>
+                                • Un punteggio maggiore di un altro significa <strong>vittoria</strong>.<br>
+                                • Quando si <strong>pareggia</strong> quindi? Quando i due punteggi sono <strong>uguali</strong> oppure quando i due punteggi sono <strong>entrambi
+                                    inferiori al 66</strong>.
+                            </div>
+                            
+                            <div class="classifica-container">
+                                <table class="classifica-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Pos</th>
+                                            <th>Squadra</th>
+                                            <th>Pt Reali</th>
+                                            <th>Pt Corretti</th>
+                                            <th>Saldo Pt</th>
+                                            <th>Saldo Pos</th>
+                                            <th>V-P-S</th>
+                                            <th>GF:GS</th>
+                                            <th>DR</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${classificaRows}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECONDA SEZIONE: FORZA AVVERSARI - COLLASSABILE, STESSI COLORI -->
+                    <div class="section-box">
+                        <div class="collapsible-header" onclick="toggleSection(this)">
+                            <div class="section-title">
+                                ⚽️❌ Gol degli avversari: perchè così tanti contro di me?
+                            </div>
+                            <span class="collapsible-arrow">▼</span>
+                        </div>
+                        <div class="collapsible-content">
+                            <div class="collapsible-inner">
+                                <div class="legend-box">
+                                    <p style="font-size: 16px"><strong>Cosa rappresenta questa sezione?</strong><p><br>
+                                    • In questa sezione vengono confrontate la media dei gol segnati dagli avversari contro la squadra di riferimento
+                                        e la media dei gol segnati dagli avversari nelle altre partite.<br>
+                                    • L'indicatore calcolato è la <strong>differenza tra le due medie.</strong><br>
+                                    • Un numero alto significa solo una cosa.. gli avversari, contro di te, <span class="soglia-highlight">segnano più che nelle altre partite!</span><br>
+                                    • Esempio➞un valore di <strong>+0.21</strong> significa che i tuoi avversari segnano, <strong>mediamente, 0.21 gol in più contro di te che contro gli altri.</strong>
+                                </div>
+
+                                <div class="classifica-container">
+                                    <table class="classifica-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Squadra</th>
+                                                <th>Media Gol vs Me</th>
+                                                <th>Media Gol Altre Partite</th>
+                                                <th>Differenza</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${forzaRows}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TERZA SEZIONE: CALENDARI INVERTITI - COLLASSABILE, STESSI COLORI -->
+                    <div class="section-box">
+                        <div class="collapsible-header" onclick="toggleSection(this)">
+                            <div class="section-title">
+                                🔀🗓️ Inverti i calendari
+                            </div>
+                            <span class="collapsible-arrow">▼</span>
+                        </div>
+                        <div class="collapsible-content">
+                            <div class="collapsible-inner">
+                                <div class="legend-box">
+                                    <p style="font-size: 16px">Il tuo peggior fanta-nemico subisce <strong>1 gol ogni 2 partite</strong> e la cosa <strong>ti fa arrabbiare</strong>, ci sta.
+                                        Ma se vuoi arrabbiarti di più, in questa sezione puoi <strong>invertire il tuo calendario con il suo.🙂</strong><p><br>
+                                    • Seleziona i due fantallenatori (Squadra A - Squadra B), clicca su <span style="font-style: italic">Inverti i calendari e calcola la classifica</span>, goditi la <span class="soglia-highlight">nuova classifica</span>.<br>
+                                    • Non sconvolgerti se, invertendo il tuo calendario con quello del primo in classifica, questo diventerebbe ultimo.. <br>
+                                </div>
+
+                                <div class="inverti-form">
+                                    <div class="form-row">
+                                        <span class="form-label">Squadra A:</span>
+                                        <select id="squadraA" class="form-select">
+                                            ${optionsHtml}
+                                        </select>
+                                        <span class="swap-icon">⇄</span>
+                                        <span class="form-label">Squadra B:</span>
+                                        <select id="squadraB" class="form-select">
+                                            ${optionsHtml}
+                                        </select>
+                                    </div>
+                                    <div class="btn-container">
+                                        <button class="btn-calculate" onclick="calcolaInvertito()">
+                                            🔄 Inverti i calendari e calcola la classifica
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div id="errorInvertito" class="error-message"></div>
+
+                                <div id="tabellaInvertito" style="display: none;">
+                                    <h4 id="titoloInvertito" class="inverti-title"></h4>
+                                    <div class="classifica-container">
+                                        <table class="classifica-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Squadra</th>
+                                                    <th>Pt Reali</th>
+                                                    <th>Pt Invertiti</th>
+                                                    <th>Saldo Pt</th>
+                                                    <th>Saldo Pos</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="tbodyInvertito">
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="download-section">
+                        <a href="/uploads/${data.output_reale}" class="download-btn reale" download>
+                            📥 Reale
+                        </a>
+                        <a href="/uploads/${data.output_fantasy}" class="download-btn fantasy" download>
+                            ⚡ Fantasy
+                        </a>
+                        <a href="/uploads/${data.output_confronto}" class="download-btn confronto" download>
+                            📊 Confronto
+                        </a>
+                        <a href="/uploads/${data.output_forza}" class="download-btn forza" download>
+                            🎯 Forza Avversari
+                        </a>
+                    </div>
+                </div>
+            `;
+            document.getElementById('result').innerHTML = html;
+        }
+
+        function toggleSection(header) {
+            const content = header.nextElementSibling;
+            const arrow = header.querySelector('.collapsible-arrow');
+            
+            content.classList.toggle('open');
+            arrow.classList.toggle('open');
+        }
+
+        function calcolaInvertito() {
+            const squadraA = document.getElementById('squadraA').value;
+            const squadraB = document.getElementById('squadraB').value;
+            
+            const errorDiv = document.getElementById('errorInvertito');
+            const tabellaDiv = document.getElementById('tabellaInvertito');
+            const tbody = document.getElementById('tbodyInvertito');
+            const titoloInvertito = document.getElementById('titoloInvertito');
+            
+            errorDiv.style.display = 'none';
+            
+            if (!squadraA || !squadraB) {
+                errorDiv.textContent = 'Seleziona entrambe le squadre';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            if (squadraA === squadraB) {
+                errorDiv.textContent = 'Seleziona due squadre diverse';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            fetch('/inverti', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    squadra_a: squadraA,
+                    squadra_b: squadraB
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    titoloInvertito.textContent = `Calendario invertito: ${data.squadra_a} ↔ ${data.squadra_b} - come cambia la classifica`;
+                    
+                    let rowsHtml = '';
+                    data.classifica.forEach(row => {
+                        const isSwapped = (row.squadra === data.squadra_a || row.squadra === data.squadra_b);
+                        const highlightClass = isSwapped ? 'highlight-swap' : '';
+                        
+                        const saldoPuntiClass = row.saldo_punti > 0 ? 'saldo-positive' : 
+                                               row.saldo_punti < 0 ? 'saldo-negative' : 'saldo-neutral';
+                        const saldoPosClass = row.saldo_posizioni > 0 ? 'saldo-positive' : 
+                                             row.saldo_posizioni < 0 ? 'saldo-negative' : 'saldo-neutral';
+                        const arrowClass = row.saldo_posizioni > 0 ? 'arrow-up' : 
+                                          row.saldo_posizioni < 0 ? 'arrow-down' : 'arrow-neutral';
+                        
+                        const saldoPuntiText = row.saldo_punti > 0 ? `+${row.saldo_punti}` :
+                                              row.saldo_punti === 0 ? '0' : `${row.saldo_punti}`;
+                        const saldoPosText = row.saldo_posizioni > 0 ? `+${row.saldo_posizioni}` :
+                                            row.saldo_posizioni === 0 ? '=' : `${row.saldo_posizioni}`;
+                        
+                        rowsHtml += `
+                            <tr class="${highlightClass}">
+                                <td class="team-name">${row.squadra}</td>
+                                <td class="punti-reali">${row.punti_originali}</td>
+                                <td class="punti-fantasy">${row.punti_invertiti}</td>
+                                <td class="${saldoPuntiClass}">${saldoPuntiText}</td>
+                                <td class="${saldoPosClass} ${arrowClass}">${saldoPosText}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    tbody.innerHTML = rowsHtml;
+                    tabellaDiv.style.display = 'block';
+                    
+                } else {
+                    errorDiv.textContent = data.message;
+                    errorDiv.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                errorDiv.textContent = 'Errore di connessione: ' + error;
+                errorDiv.style.display = 'block';
+            });
+        }
+
+        function getDifficoltaColor(value) {
+            const numValue = parseFloat(value);
+            
+            // Verde: #2c8630 → 44, 134, 48
+            // Rosso: #b90b0b → 185, 11, 11
+            // Grigio: #eeeeee → 238, 238, 238
+            
+            if (Math.abs(numValue) < 0.0001) {
+                return `rgb(238, 238, 238)`;
+            }
+            
+            const r = numValue > 0 ? 185 : 44;
+            const g = numValue > 0 ? 11 : 134;
+            const b = numValue > 0 ? 11 : 48;
+            
+            const alpha = 0.5 + Math.abs(numValue);
+            
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+    </script>
+</body>
+</html>
