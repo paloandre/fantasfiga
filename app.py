@@ -2,6 +2,10 @@
 from flask import Flask, render_template, request, jsonify, send_file
 import pandas as pd
 import os
+import random
+import math
+import numpy as np
+from scipy.stats import norm
 from werkzeug.utils import secure_filename
 from datetime import datetime
 from itertools import combinations
@@ -14,6 +18,10 @@ UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 ALLOWED_EXTENSIONS = {'xlsx', 'xls'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+
+PUNTI_VITTORIA = 3
+PUNTI_PAREGGIO = 1
+PUNTI_SCONFITTA = 0
 
 # Memorizza l'ultimo calendario reale per poterlo modificare
 ultimo_calendario_reale = None
@@ -175,14 +183,14 @@ def calcola_punti_partita_fantasy(p1, p2):
     SOGLIA = 66
     
     if p1 < SOGLIA and p2 < SOGLIA:
-        return 1, 1
+        return PUNTI_PAREGGIO, PUNTI_PAREGGIO
     
     if p1 > p2:
-        return 3, 0
+        return PUNTI_VITTORIA, PUNTI_SCONFITTA
     elif p2 > p1:
-        return 0, 3
+        return PUNTI_SCONFITTA, PUNTI_VITTORIA
     else:
-        return 1, 1
+        return PUNTI_PAREGGIO, PUNTI_PAREGGIO
 
 
 def calcola_classifica_reale(df_reale):
@@ -194,13 +202,24 @@ def calcola_classifica_reale(df_reale):
         'pareggiate': 0,
         'perse': 0,
         'gol_fatti': 0,
-        'gol_subiti': 0
+        'gol_subiti': 0,
+        'punti_fatti': 0,
+        'punti_subiti': 0
     })
     
     for _, row in df_reale.iterrows():
         s1, s2 = row['squadra1'], row['squadra2']
         g1 = int(row['gol1']) if pd.notna(row['gol1']) else 0
         g2 = int(row['gol2']) if pd.notna(row['gol2']) else 0
+
+        p1 = float(row['punteggio1']) if pd.notna(row['punteggio1']) else 0
+        p2 = float(row['punteggio2']) if pd.notna(row['punteggio2']) else 0
+
+        stats[s1]['punti_fatti'] += p1
+        stats[s1]['punti_subiti'] += p2
+
+        stats[s2]['punti_fatti'] += p2
+        stats[s2]['punti_subiti'] += p1
         
         stats[s1]['giocate'] += 1
         stats[s2]['giocate'] += 1
@@ -211,16 +230,16 @@ def calcola_classifica_reale(df_reale):
         stats[s2]['gol_subiti'] += g1
         
         if g1 > g2:
-            stats[s1]['punti'] += 3
+            stats[s1]['punti'] += PUNTI_VITTORIA
             stats[s1]['vinte'] += 1
             stats[s2]['perse'] += 1
         elif g2 > g1:
-            stats[s2]['punti'] += 3
+            stats[s2]['punti'] += PUNTI_VITTORIA
             stats[s2]['vinte'] += 1
             stats[s1]['perse'] += 1
         else:
-            stats[s1]['punti'] += 1
-            stats[s2]['punti'] += 1
+            stats[s1]['punti'] += PUNTI_PAREGGIO
+            stats[s2]['punti'] += PUNTI_PAREGGIO
             stats[s1]['pareggiate'] += 1
             stats[s2]['pareggiate'] += 1
     
@@ -235,7 +254,9 @@ def calcola_classifica_reale(df_reale):
             'perse': s['perse'],
             'gol_fatti': s['gol_fatti'],
             'gol_subiti': s['gol_subiti'],
-            'differenza_rete': s['gol_fatti'] - s['gol_subiti']
+            'differenza_rete': s['gol_fatti'] - s['gol_subiti'],
+            'punti_fatti': round(s['punti_fatti'],2),
+            'punti_subiti': round(s['punti_subiti'],2)
         })
     
     df = pd.DataFrame(classifica)
@@ -262,13 +283,13 @@ def calcola_classifica_fantasy_da_long(df_fantasy_long):
     
     vps = df_fantasy_long.groupby('squadra')['punti_ottenuti'].value_counts().unstack(fill_value=0)
     
-    for col in [0, 1, 3]:
+    for col in [PUNTI_SCONFITTA, PUNTI_PAREGGIO, PUNTI_VITTORIA]:
         if col not in vps.columns:
             vps[col] = 0
     
-    stats['vinte'] = vps[3]
-    stats['pareggiate'] = vps[1]
-    stats['perse'] = vps[0]
+    stats['vinte'] = vps[PUNTI_VITTORIA]
+    stats['pareggiate'] = vps[PUNTI_PAREGGIO]
+    stats['perse'] = vps[PUNTI_SCONFITTA]
     
     classifica = []
     for squadra in stats.index:
@@ -377,7 +398,209 @@ def calcola_confronto(df_reale, df_fantasy_long):
     
     return df_confronto
 
+def genera_round_robin_random(teams):
 
+    teams = teams.copy()
+    random.shuffle(teams)
+
+    if len(teams) % 2 == 1:
+        teams.append(None)
+
+    n = len(teams)
+    rounds = []
+
+    for r in range(n - 1):
+
+        matches = []
+
+        for i in range(n // 2):
+
+            t1 = teams[i]
+            t2 = teams[n - 1 - i]
+
+            if t1 and t2:
+                matches.append((t1, t2))
+
+        rounds.append(matches)
+
+        teams = [teams[0]] + [teams[-1]] + teams[1:-1]
+
+    random.shuffle(rounds)
+
+    return rounds
+
+def montecarlo_calendari(df_reale, n_sim=50000, salva_prima_sim=False):
+
+    classifica_reale = calcola_classifica_reale(df_reale)
+
+    squadre = sorted(set(df_reale['squadra1']).union(df_reale['squadra2']))
+    N = len(squadre)
+
+    squad_index = {s: i for i, s in enumerate(squadre)}
+
+    # =========================
+    # TIEBREAK
+    # =========================
+    punteggi_tot = np.zeros(N)
+
+    for _, r in df_reale.iterrows():
+        i = squad_index[r['squadra1']]
+        j = squad_index[r['squadra2']]
+
+        p1 = float(r['punteggio1']) if pd.notna(r['punteggio1']) else 0
+        p2 = float(r['punteggio2']) if pd.notna(r['punteggio2']) else 0
+
+        punteggi_tot[i] += p1
+        punteggi_tot[j] += p2
+
+    round_robin = N - 1
+    X = math.ceil(38 / round_robin) * round_robin
+
+    min_g = df_reale['num_giornata'].min()
+    df_reale = df_reale.copy()
+    df_reale['num_giornata'] = df_reale['num_giornata'] - (min_g - 1)
+
+    max_giornata_excel = df_reale['num_giornata'].max()
+
+    # =========================
+    # GOL PER GIORNATA
+    # =========================
+    gol = {}
+
+    for _, r in df_reale.iterrows():
+        g = r['num_giornata']
+
+        gol.setdefault(g, np.zeros(N))
+
+        gol[g][squad_index[r['squadra1']]] = r['gol1']
+        gol[g][squad_index[r['squadra2']]] = r['gol2']
+
+    punti_mc = np.zeros((n_sim, N))
+    posizioni = np.zeros((n_sim, N))  # 🔥 CORRETTO QUI
+
+    vittorie = np.zeros(N)
+    prima_simulazione = None
+
+    # =========================
+    # SIMULAZIONI
+    # =========================
+    for sim in range(n_sim):
+
+        punti = np.zeros(N)
+
+        blocchi = X // round_robin
+        giornata = 1
+
+        rows_debug = []
+
+        for _ in range(blocchi):
+
+            rr = genera_round_robin_random(squadre)
+
+            for matches in rr:
+
+                for s1, s2 in matches:
+
+                    if giornata > max_giornata_excel:
+                        continue
+
+                    i = squad_index[s1]
+                    j = squad_index[s2]
+
+                    g1 = gol[giornata][i]
+                    g2 = gol[giornata][j]
+
+                    if g1 > g2:
+                        punti[i] += 3
+                    elif g2 > g1:
+                        punti[j] += 3
+                    else:
+                        punti[i] += 1
+                        punti[j] += 1
+
+                    if salva_prima_sim and sim == 0:
+                        rows_debug.append({
+                            "num_giornata": giornata,
+                            "squadra1": s1,
+                            "squadra2": s2,
+                            "gol1": g1,
+                            "gol2": g2
+                        })
+
+                giornata += 1
+
+        punti_mc[sim] = punti
+
+        # =========================
+        # POSIZIONI (🔥 FIX)
+        # =========================
+        rank = (-punti).argsort().argsort() + 1
+        posizioni[sim] = rank
+
+        # =========================
+        # VINCITORE
+        # =========================
+        max_punti = np.max(punti)
+        candidate = np.where(punti == max_punti)[0]
+
+        if len(candidate) > 1:
+            punteggi_candidate = punteggi_tot[candidate]
+            winner = candidate[np.argmax(punteggi_candidate)]
+        else:
+            winner = candidate[0]
+
+        vittorie[winner] += 1
+
+        if salva_prima_sim and sim == 0:
+            prima_simulazione = pd.DataFrame(rows_debug)
+
+    # =========================
+    # RISULTATI FINALI
+    # =========================
+    risultati = []
+
+    punti_reali_dict = dict(
+        zip(classifica_reale['squadra'], classifica_reale['punti_reali'])
+    )
+
+    for squadra in squadre:
+
+        idx = squad_index[squadra]
+
+        distribuzione = punti_mc[:, idx]
+        media = np.mean(distribuzione)
+
+        punti_reali = punti_reali_dict.get(squadra, 0)
+
+        percentile = np.mean(distribuzione <= punti_reali) * 100
+        win_mc = (vittorie[idx] / n_sim) * 100
+
+        # 🔥 MEDIA POSIZIONE
+        pos_media = np.mean(posizioni[:, idx])
+
+        # 🔥 PROBABILITÀ POS ≤ REALE
+        pos_reale = classifica_reale.loc[
+            classifica_reale['squadra'] == squadra, 'posizione_reale'
+        ].values[0]
+
+        prob_peggio = np.mean(posizioni[:, idx] >= pos_reale) * 100
+
+        risultati.append({
+            "squadra": squadra,
+            "media_punti_mc": round(float(media), 2),
+            "percentile_mc": round(float(percentile), 2),
+            "win_mc": round(float(win_mc), 2),
+            "posizione_media_mc": round(float(pos_media), 2),
+            "prob_peggio": round(float(prob_peggio), 2)
+        })
+
+    df_ris = pd.DataFrame(risultati)
+
+    if salva_prima_sim:
+        return df_ris, prima_simulazione
+    else:
+        return df_ris
+        
 def inverti_calendario_sas_style(calendario, squadra_a, squadra_b):
     """
     Algoritmo SAS per inversione calendario:
@@ -524,32 +747,56 @@ def upload_file():
             
             # 3. Calcola classifiche
             df_confronto = calcola_confronto(df_calendario_reale, df_fantasy_long)
+            df_mc, prima_sim = montecarlo_calendari(
+                df_calendario_reale,
+                salva_prima_sim=True
+            )
+
+            df_confronto = df_confronto.merge(df_mc, on='squadra', how='left')
+
+            #Montecarlo
+            df_confronto['delta_pos_mc'] = (
+                df_confronto['posizione_reale'] - df_confronto['posizione_media_mc']
+            )
             df_forza_avversari = calcola_forza_avversari(df_calendario_reale)
-            
+
+            # 🔧 FIX NaN per JSON
+            df_confronto = df_confronto.replace([float("inf"), -float("inf")], 0)
+            df_confronto = df_confronto.fillna(0)
+            df_forza_avversari = df_forza_avversari.fillna(0)
+
             # Stats
             giornate_totali = int(df_calendario_reale['num_giornata'].nunique())
             num_squadre = len(ultime_squadre)
             righe_fantasy = len(df_fantasy_long)
             
-            all_scores = list(df_calendario_reale['punteggio1']) + list(df_calendario_reale['punteggio2'])
-            media_punti = round(sum(all_scores) / len(all_scores), 2) if all_scores else 0
+            all_scores = pd.concat([
+                df_calendario_reale['punteggio1'],
+                df_calendario_reale['punteggio2']
+            ]).dropna()
+
+            all_scores_non_zero = all_scores[all_scores > 0]
+
+            # levo gli 0 (presunti tavolini) dalla media punti
+            media_punti = round(all_scores_non_zero.mean(), 2) if len(all_scores_non_zero) else 0
             
             # Trova più/smeno fortunati
-            piu_fortunato = df_confronto.loc[df_confronto['saldo_punti'].idxmax()]
-            piu_sfortunato = df_confronto.loc[df_confronto['saldo_punti'].idxmin()]
+            piu_fortunato = df_confronto.loc[df_confronto['delta_pos_mc'].idxmax()]
+            piu_sfortunato = df_confronto.loc[df_confronto['delta_pos_mc'].idxmin()]
             
             # Trova più/smeno fortunati per posizioni
             piu_fortunato_pos = df_confronto.loc[df_confronto['saldo_posizioni'].idxmax()]
             piu_sfortunato_pos = df_confronto.loc[df_confronto['saldo_posizioni'].idxmin()]
             
             # Trova vero campione (primo per punti fantasy)
-            vero_campione = df_confronto.loc[df_confronto['punti_fantasy'].idxmax()]
+            vero_campione = df_confronto.loc[df_confronto['win_mc'].idxmax()]
             
             # Salva file
             output_reale = f"calendario_reale_{timestamp}.xlsx"
             output_fantasy = f"calendario_fantasy_{timestamp}.xlsx"
             output_confronto = f"confronto_classifiche_{timestamp}.xlsx"
             output_forza = f"forza_avversari_{timestamp}.xlsx"
+            output_sim = f"prima_simulazione_mc_{timestamp}.xlsx"
             
             df_fantasy_export = df_fantasy_long[[
                 'squadra', 'avversario', 'giornata', 'punteggio', 'punti_ottenuti'
@@ -559,7 +806,11 @@ def upload_file():
             df_fantasy_export.to_excel(os.path.join(app.config['UPLOAD_FOLDER'], output_fantasy), index=False)
             df_confronto.to_excel(os.path.join(app.config['UPLOAD_FOLDER'], output_confronto), index=False)
             df_forza_avversari.to_excel(os.path.join(app.config['UPLOAD_FOLDER'], output_forza), index=False)
-            
+            prima_sim.to_excel(
+                os.path.join(app.config['UPLOAD_FOLDER'], output_sim),
+                index=False
+            )
+
             stats = {
                 'nome_lega': nome_lega,
                 'squadre_totali': len(df_confronto),
@@ -571,11 +822,11 @@ def upload_file():
                 'elenco_squadre': ultime_squadre,
                 'piu_fortunato': {
                     'squadra': piu_fortunato['squadra'],
-                    'saldo': round(piu_fortunato['saldo_punti'], 2)
+                    'saldo': round(piu_fortunato['delta_pos_mc'], 2)
                 },
                 'piu_sfortunato': {
                     'squadra': piu_sfortunato['squadra'],
-                    'saldo': round(piu_sfortunato['saldo_punti'], 2)
+                    'saldo': round(piu_sfortunato['delta_pos_mc'], 2)
                 },
                 'piu_fortunato_pos': {
                     'squadra': piu_fortunato_pos['squadra'],
@@ -587,7 +838,7 @@ def upload_file():
                 },
                 'vero_campione': {
                     'squadra': vero_campione['squadra'],
-                    'punti': round(vero_campione['punti_fantasy'], 2)
+                    'punti': round(vero_campione['media_punti_mc'], 2)
                 },
                 'confronto': df_confronto.to_dict('records'),
                 'forza_avversari': df_forza_avversari.to_dict('records')
@@ -601,6 +852,7 @@ def upload_file():
                 'output_fantasy': output_fantasy,
                 'output_confronto': output_confronto,
                 'output_forza': output_forza,
+                'output_simulazione': output_sim,
                 'stats': stats
             })
             

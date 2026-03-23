@@ -1,4 +1,4 @@
-<!-- index.html - COMPLETO RISCritto -->
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -359,7 +359,7 @@
         .classifica-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 12px;
+            font-size: 12px !important;
             background: white;
         }
 
@@ -413,7 +413,6 @@
             background: #fbe3cf;
             color: #815509;
             font-weight: bold;
-            font-size: 13px;
             border-radius: 4px;
         }
 
@@ -421,7 +420,6 @@
             background: #fff3e0;
             color: #e65100;
             font-weight: bold;
-            font-size: 14px;
             border-radius: 4px;
         }
 
@@ -432,8 +430,8 @@
             font-size: 13px;
         }
 
-        .saldo-positive { font-size: 14px; color: #2c8630; font-weight: bold; }
-        .saldo-negative { font-size: 14px; color: #b90b0b; font-weight: bold; }
+        .saldo-positive { color: #2c8630; font-weight: bold; }
+        .saldo-negative { color: #b90b0b; font-weight: bold; }
         .saldo-neutral { font-size: 14px; color: #757575; }
 
         .arrow-up::before { content: "↑ "; color: #2e7d32; }
@@ -529,7 +527,7 @@
         <div class="info-section">
             <h2>ℹ️ Informazioni</h2>
             <div class="info-content">
-                <p>Questa pagina permette di esplorare la sfiga dovuta al calendario e alle soglie-gol nella tua fantalega.</p>
+                <p>Questa pagina permette di esplorare la sfiga dovuta al calendario nella tua fantalega.</p>
                 <p style="margin-top: 10px;"><strong>Come funziona?</strong></p>
                 <p style="margin-top: 5px;">Vai sul sito di Leghe Fantacalcio,
                     entra nella sezione "CALENDARIO" dalla pagina della tua lega e scarica il file excel cliccando
@@ -538,8 +536,8 @@
                     scaricato prima.</p>
                 <p style="margin-top: 5px;">Una volta caricato il file, vedrai:</p>
                 <ul>
-                    <li>La classifica corretta per il fattore sfiga calendario-soglie</li>
-                    <li>Il numero di gol che subisci rispetto al numero di gol segnati nelle altre partite</li>
+                    <li>La classifica corretta per il fattore culo-calendario</li>
+                    <li>Un'analisi sui gol segnati dagli avversari di un utente</li>
                     <li>La classifica invertendo i calendari di due squadre</li>
                 </ul>
                 <p style="text-decoration: underline; margin-top: 10px; font-size: 12px; opacity: 0.8;">
@@ -557,7 +555,7 @@
         
         <div class="loading" id="loading">
             <div class="spinner"></div>
-            <p style="margin-top: 10px; color: #666;">Calcolo classifiche...</p>
+            <p style="margin-top: 10px; color: #666;">Un attimo di pazienza.. calcolo sfiga in corso</p>
         </div>
         
         <div id="result"></div>
@@ -619,34 +617,70 @@
         }
 
         function renderDashboard(data) {
-            // MODIFICATO: Ordina per punti_fantasy decrescente
-            const classificaOrdinata = [...data.stats.confronto].sort((a, b) => b.punti_fantasy - a.punti_fantasy);
-            
+
+            const classificaReale = [...data.stats.confronto].sort((a, b) => b.punti_reali - a.punti_reali);
+            const posReale = {};
+            classificaReale.forEach((row, i) => {
+                posReale[row.squadra] = i + 1;
+            });
+
+            const classificaOrdinata = [...data.stats.confronto].sort((a, b) => b.media_punti_mc - a.media_punti_mc);
+            const posXP = {};
+            classificaOrdinata.forEach((row, i) => {
+                posXP[row.squadra] = i + 1;
+            });    
+
+            const valoriCulo = data.stats.confronto.map(r => Math.abs(Math.round(2 * (r.percentile_mc - 50))));
+            const influenzaCulo = Math.round(valoriCulo.reduce((a,b)=>a+b,0) / valoriCulo.length);
+                    
             // Tabella classifica comparata - MODIFICATA: rimosse Pos Reale e Pos Fanta, header centrati
             let classificaRows = '';
-            classificaOrdinata.forEach((row, index) => {
-                const posizione = index + 1;
+            classificaReale.forEach((row) => {
+                console.log(row);
+                const posizione = posXP[row.squadra];
                 const posClass = posizione <= 3 ? `pos-${posizione}` : '';
-                const saldoPuntiClass = row.saldo_punti > 0 ? 'saldo-positive' : 
-                                       row.saldo_punti < 0 ? 'saldo-negative' : 'saldo-neutral';
-                const saldoPosClass = row.saldo_posizioni > 0 ? 'arrow-up saldo-positive' : 
-                                     row.saldo_posizioni < 0 ? 'arrow-down saldo-negative' : 'arrow-neutral saldo-neutral';
-                const saldoPosText = row.saldo_posizioni > 0 ? `+${row.saldo_posizioni}` :
-                                    row.saldo_posizioni === 0 ? '=' : `${row.saldo_posizioni}`;
-                const saldoPuntiText = row.saldo_punti > 0 ? `+${row.saldo_punti.toFixed(2)}` :
-                                      row.saldo_punti === 0 ? '0' : `${row.saldo_punti.toFixed(2)}`;
+                const saldo = row.punti_reali - row.media_punti_mc;
+
+                const saldoPuntiClass = saldo > 0 ? 'saldo-positive' : 
+                                    saldo < 0 ? 'saldo-negative' : 'saldo-neutral';
+
+                const saldoPos = posXP[row.squadra] - posReale[row.squadra];
+
+                const saldoPosClass = saldoPos > 0 ? 'arrow-up saldo-positive' : 
+                                    saldoPos < 0 ? 'arrow-down saldo-negative' : 'arrow-neutral saldo-neutral';
+                const saldoPosText = saldoPos > 0 ? `+${saldoPos}` :
+                                    saldoPos === 0 ? '=' : `${saldoPos}`;  
+                const saldoPuntiText = saldo > 0 ? `+${saldo.toFixed(2)}` :
+                                    saldo === 0 ? '0' : `${saldo.toFixed(2)}`;
+
+                const culoSfiga = 2 * (row.percentile_mc - 50);
+                const culoRounded = Math.round(culoSfiga);
+                const culoText = culoRounded > 0 ? `+${culoRounded}%` : `${culoRounded}%`;
+                const culoNorm = culoRounded / 100; // ora tra -1 e 1
+                const culoColor = getCuloColor(culoNorm);
                 
                 classificaRows += `
                     <tr>
                         <td class="pos-cell ${posClass}">${posizione}°</td>
                         <td class="team-name">${row.squadra}</td>
+                        <td>${row.punti_fatti.toFixed(1)}</td>
                         <td class="punti-reali">${row.punti_reali}</td>
-                        <td class="punti-fantasy">${row.punti_fantasy.toFixed(2)}</td>
+                        <td class="punti-fantasy">${row.media_punti_mc.toFixed(2)}</td>
                         <td class="${saldoPuntiClass}">${saldoPuntiText}</td>
                         <td class="${saldoPosClass}">${saldoPosText}</td>
-                        <td>${row.vinte}-${row.pareggiate}-${row.perse}</td>
-                        <td>${row.gol_fatti}:${row.gol_subiti}</td>
-                        <td>${row.differenza_rete > 0 ? '+' : ''}${row.differenza_rete}</td>
+                        <td style="font-weight:bold; color:${culoColor}">
+                            ${culoText}
+                        </td>
+                        <td style="font-weight:bold; color:#764ba2;">
+                            ${row.win_mc  !== null && row.win_mc !== undefined
+                                ? Math.round(row.win_mc.toFixed(1)) + '%' : '-'}
+                        </td>
+                        <td style="font-weight:bold;">
+                            ${posReale[row.squadra] === 1 ? '/' :
+                            (row.prob_peggio !== null && row.prob_peggio !== undefined
+                                ? Math.round(row.prob_peggio.toFixed(1)) + '%' 
+                                : '-')}
+                        </td>
                     </tr>
                 `;
             });
@@ -675,18 +709,26 @@
                 optionsHtml += `<option value="${squadra}">${squadra}</option>`;
             });
 
+            const saldi = data.stats.confronto.map(r => ({
+                squadra: r.squadra,
+                saldo: r.punti_reali - r.media_punti_mc
+            }));
+
+            const maxSaldo = saldi.reduce((a, b) => b.saldo > a.saldo ? b : a);
+            const minSaldo = saldi.reduce((a, b) => b.saldo < a.saldo ? b : a);
+
             // Luck box
             const luckBoxHtml = `
                 <div class="luck-box">
                     <div class="luck-item">
                         <div class="luck-title">🍀 più punti rubati</div>
-                        <div class="luck-team">${data.stats.piu_fortunato.squadra}</div>
-                        <div class="luck-value luck-positive">+${data.stats.piu_fortunato.saldo} punti</div>
+                        <div class="luck-team">${maxSaldo.squadra}</div>
+                        <div class="luck-value luck-positive">+${maxSaldo.saldo.toFixed(2)} punti</div>
                     </div>
                     <div class="luck-item">
                         <div class="luck-title">😈 più punti persi</div>
-                        <div class="luck-team">${data.stats.piu_sfortunato.squadra}</div>
-                        <div class="luck-value luck-negative">${data.stats.piu_sfortunato.saldo} punti</div>
+                        <div class="luck-team">${minSaldo.squadra}</div>
+                        <div class="luck-value luck-negative">${minSaldo.saldo.toFixed(2)} punti</div>
                     </div>
                     <div class="luck-item">
                         <div class="luck-title">📈 più posizioni rubate</div>
@@ -733,38 +775,82 @@
                     <div class="section-box">
                         <div class="section-header">
                             <div class="section-title">
-                                📊✅ Classifica Corretta
+                                📊✅ Classifica Corretta - Il fattore culo-calendario
                             </div>
                         </div>
                         <div class="section-content">
                             <div class="legend-box">
                                 <p style="font-size: 16px"><strong>Come funziona la classifica corretta?</strong><p><br>
-                                <p style="font-size: 14px; text-decoration: underline">Correzione calendario<p><br>
-                                • La soluzione migliore per correggere la sfiga da calendario è far sì che, in ogni giornata,<span class="soglia-highlight">tutti giochino contro tutti.</span><br>
-                                • Si sommano i punti ottenuti in tutte le partite e si dividono per il numero di partite.<br>
-                                • Esempio➞In una lega a 8, ogni giornata si giocano 7 partite.
-                                        Uno score di <strong>2 vittorie, 4 pareggi e 1 sconfitta</strong> genera <strong>10 punti</strong>, che
-                                        divisi per 7 partite danno <strong>1.43 punti corretti</strong>).<br>
-                                <p style="margin-top: 20px; font-size: 14px; text-decoration: underline">Correzione soglia gol<p><br>
-                                • Abbiamo pensato che il modo migliore per correggere la sfiga da soglia sia.. <span class="soglia-highlight">eliminare le soglie!😱</span><br>
-                                • Un punteggio maggiore di un altro significa <strong>vittoria</strong>.<br>
-                                • Quando si <strong>pareggia</strong> quindi? Quando i due punteggi sono <strong>uguali</strong> oppure quando i due punteggi sono <strong>entrambi
-                                    inferiori al 66</strong>.
+                                <p style="font-size: 14px; text-decoration: underline">Il metodo Montecarlo<p><br>
+                                Come sappiamo, il fattore culo-calendario può influire pesantemente sulla classifica di una lega di fantacalcio,
+                                    poichè i punteggi del nostro avversario non dipendono in alcun modo da noi e dalle nostre scelte.<br>
+                                Questo può tradursi in un risultato che non dipende tanto dal nostro punteggio, quanto piuttosto dall'avversario che ci siamo trovati
+                                    ad affrontare in quella specifica giornata.<br>
+                                Da questa considerazione nasce, spontanea, una osservazione (soprattutto dopo una mancata vittoria con uno
+                                    dei punteggi più alti di giornata): <strong>"se il calendario fosse stato diverso, avrei vinto!"</strong><br>
+                                Bene, vi siete mai chiesti invece: se potessi <strong>generare tantissime classifiche risorteggiando ogni volta
+                                    un calendario diverso</strong>, cosa otterrei?<br>
+                                Il metodo Montecarlo riguarda proprio questo. E, usando un computer, è molto semplice ottenere l'informazione
+                                    ed infine sintetizzarla usando<span class="soglia-highlight">la media aritmetica dei punti ottenuti</span>.<br>
+                                Riassumendo: <br>
+                                • sono stati ottenuti i risultati di 50000 calendari diversi usando i punteggi reali maturati nella lega
+                                    caricata dall'utente.<br>
+                                • è stata calcolata la media-punti delle 50000 classifiche per ogni partecipante.<br>
+                                • è stata calcolata una classifica "corretta" per il fattore culo-calendario usando questa media-punti.<br>
+                                
+                                <p style="margin-top: 20px; font-size: 14px; text-decoration: underline">Cosa vedo nella tabella<p><br>
+                                • <strong>Expected ranking</strong>: posizione nella classifica corretta.<br>
+                                • <strong>Punteggio totale</strong>: somma dei punteggi di ogni giornata.<br>
+                                • <strong>Punti reali</strong>: punti ottenuti nel calendario reale su Leghe Fantacalcio.<br>
+                                • <strong>Expected Points</strong>: media-punti delle 50000 classifiche.<br>
+                                • <strong>Saldo punti</strong>: differenza tra punti reali ed Expected Points. Positivo significa overperformance,
+                                    quindi il partecipante ha fatto meglio rispetto alle attese.<br>
+                                • <strong>Saldo posizioni</strong>: differenza tra posizione reale ed Expected Ranking. Positivo significa overperformance,
+                                    quindi il partecipante si trova in una posizione di classifica migliore rispetto alle attese.<br>
+                                • <strong>Culo/Sfiga</strong>: valore normalizzato (-100 / +100) sulla sfiga/fortuna dovuta al calendario.
+                                    Il valore è normalizzato per permettere il confronto con altre leghe. Per approfondirne il calcolo, cliccare 
+                                    Per approfondirne il calcolo, cliccare 
+                                        <a href="javascript:void(0);" onclick="toggleExplanation()" style="text-decoration: underline; color: #764ba2; font-weight:bold;">QUI</a>.<br>
+                                        <div id="explanationBlock" style="display:none; margin-top:5px; margin-left:15px; font-size:13px; line-height:1.4; color:#333;">
+                                            <p>La distribuzione dei 50000 punti ottenuti nelle altrettante classifiche è normale, o comunque ha senso supporla tale.
+                                                Il numero è ottenuto così: il doppio della differenza assoluta tra il percentile dello Z-score del
+                                                valore reale all'interno della distribuzione Montecarlo e 0.5. L'idea è considerare come punto 0 la media (percentile 0.5) e considerare
+                                                come "quantità di fortuna" lo scostamento da lì verso la coda. Considerando le due metà separatamente, il valore è raddoppiato
+                                                per avere il range 0%-100%.</p>
+                                        </div>.<br>
+                                • <strong>% 1° pos</strong>: è la probabilità che l'utente si trovi primo in classifica. Il calcolo è il numero di classifiche
+                                    nelle quali è 1° diviso le 50000 ripetizioni.<br>
+                                • <strong>% pos reale</strong>: è la probabilità che l'utente si trovi in una posizione di classifica inferiore o uguale
+                                    a quella reale. Numeri bassi indicano sfortuna (è improbabile essere così indietro), numeri alti indicano culo
+                                    (è improbabile fare meglio di così).<br>
+                                • <strong>Influenza del culo nella lega</strong>: è la media dei valori assoluti della colonna Culo/Sfiga,
+                                    pensata per poter comparare le leghe tra loro.<br>
                             </div>
-                            
+
+                            <div style="
+                                text-align:center;
+                                font-size:20px;
+                                font-weight:bold;
+                                margin-bottom:15px;
+                                color:#2a5298;
+                            ">
+                            Influenza del culo-calendario nella lega: ${influenzaCulo}%
+                            </div>
+
                             <div class="classifica-container">
                                 <table class="classifica-table">
                                     <thead>
                                         <tr>
-                                            <th>Pos</th>
+                                            <th>Expected Ranking</th>
                                             <th>Squadra</th>
-                                            <th>Pt Reali</th>
-                                            <th>Pt Corretti</th>
-                                            <th>Saldo Pt</th>
-                                            <th>Saldo Pos</th>
-                                            <th>V-P-S</th>
-                                            <th>GF:GS</th>
-                                            <th>DR</th>
+                                            <th>Punteggio Totale</th>
+                                            <th>Punti Reali</th>
+                                            <th>Expected Points</th>
+                                            <th>Saldo Punti</th>
+                                            <th>Saldo Posizioni</th>
+                                            <th>Culo/Sfiga</th>
+                                            <th>Probabilità 1° posto</th>
+                                            <th>Probabilità posizione reale</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -886,6 +972,12 @@
                         <a href="/uploads/${data.output_forza}" class="download-btn forza" download>
                             🎯 Forza Avversari
                         </a>
+
+                        ${data.output_simulazione ? `
+                        <a href="/uploads/${data.output_simulazione}" class="download-btn confronto" download>
+                            🎲 Prima simulazione Montecarlo
+                        </a>
+                        ` : ``}
                     </div>
                 </div>
             `;
@@ -995,9 +1087,37 @@
             const g = numValue > 0 ? 11 : 134;
             const b = numValue > 0 ? 11 : 48;
             
-            const alpha = 0.5 + Math.abs(numValue);
+            const alpha = Math.min(1, 0.5 + Math.abs(numValue));
             
             return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+        function getCuloColor(value) {
+            const numValue = parseFloat(value);
+            
+            // Verde: #2c8630 → 44, 134, 48
+            // Rosso: #b90b0b → 185, 11, 11
+            // Grigio: #eeeeee → 238, 238, 238
+            
+            if (Math.abs(numValue) < 0.0001) {
+                return `rgb(238, 238, 238)`;
+            }
+            
+            // Invertito: negativi = rosso, positivi = verde
+            const r = numValue > 0 ? 44 : 185;
+            const g = numValue > 0 ? 134 : 11;
+            const b = numValue > 0 ? 48 : 11;
+            
+            const alpha = Math.min(1, 0.5 + Math.abs(numValue));
+            
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+        function toggleExplanation() {
+            const block = document.getElementById('explanationBlock');
+            if (block.style.display === 'none') {
+                block.style.display = 'block';
+            } else {
+                block.style.display = 'none';
+            }
         }
     </script>
 </body>
