@@ -429,20 +429,34 @@ def genera_round_robin_random(teams):
 
     return rounds
 
-def montecarlo_calendari(df_reale, n_sim=50000, salva_prima_sim=False):
+def montecarlo_calendari(df_reale, n_sim=100, salva_prima_sim=False):
+    import numpy as np
+    import random
+    import math
 
     classifica_reale = calcola_classifica_reale(df_reale)
 
     squadre = sorted(set(df_reale['squadra1']).union(df_reale['squadra2']))
     N = len(squadre)
-
     squad_index = {s: i for i, s in enumerate(squadre)}
 
-    # =========================
-    # TIEBREAK
-    # =========================
-    punteggi_tot = np.zeros(N)
+    # NORMALIZZA GIORNATE
+    df_reale = df_reale.copy()
+    min_g = df_reale['num_giornata'].min()
+    df_reale['num_giornata'] -= (min_g - 1)
 
+    max_giornata = int(df_reale['num_giornata'].max())
+
+    # MATRICE GOL
+    gol_matrix = np.zeros((max_giornata + 1, N))
+
+    for _, r in df_reale.iterrows():
+        g = int(r['num_giornata'])
+        gol_matrix[g, squad_index[r['squadra1']]] = r['gol1']
+        gol_matrix[g, squad_index[r['squadra2']]] = r['gol2']
+
+    # TIEBREAK
+    punteggi_tot = np.zeros(N)
     for _, r in df_reale.iterrows():
         i = squad_index[r['squadra1']]
         j = squad_index[r['squadra2']]
@@ -453,44 +467,21 @@ def montecarlo_calendari(df_reale, n_sim=50000, salva_prima_sim=False):
         punteggi_tot[i] += p1
         punteggi_tot[j] += p2
 
+    # ROUND ROBIN LOGICA ORIGINALE
     round_robin = N - 1
-    X = math.ceil(38 / round_robin) * round_robin
-
-    min_g = df_reale['num_giornata'].min()
-    df_reale = df_reale.copy()
-    df_reale['num_giornata'] = df_reale['num_giornata'] - (min_g - 1)
-
-    max_giornata_excel = df_reale['num_giornata'].max()
-
-    # =========================
-    # GOL PER GIORNATA
-    # =========================
-    gol = {}
-
-    for _, r in df_reale.iterrows():
-        g = r['num_giornata']
-
-        gol.setdefault(g, np.zeros(N))
-
-        gol[g][squad_index[r['squadra1']]] = r['gol1']
-        gol[g][squad_index[r['squadra2']]] = r['gol2']
+    X = math.ceil(max_giornata / round_robin) * round_robin
+    blocchi = X // round_robin
 
     punti_mc = np.zeros((n_sim, N))
-    posizioni = np.zeros((n_sim, N))  # 🔥 CORRETTO QUI
-
+    posizioni = np.zeros((n_sim, N))
     vittorie = np.zeros(N)
+
     prima_simulazione = None
 
-    # =========================
-    # SIMULAZIONI
-    # =========================
     for sim in range(n_sim):
 
         punti = np.zeros(N)
-
-        blocchi = X // round_robin
         giornata = 1
-
         rows_debug = []
 
         for _ in range(blocchi):
@@ -498,25 +489,21 @@ def montecarlo_calendari(df_reale, n_sim=50000, salva_prima_sim=False):
             rr = genera_round_robin_random(squadre)
 
             for matches in rr:
-
                 for s1, s2 in matches:
 
-                    if giornata > max_giornata_excel:
-                        continue
+                    if giornata > max_giornata:
+                        break
 
                     i = squad_index[s1]
                     j = squad_index[s2]
 
-                    g1 = gol[giornata][i]
-                    g2 = gol[giornata][j]
+                    g1 = gol_matrix[giornata, i]
+                    g2 = gol_matrix[giornata, j]
 
-                    if g1 > g2:
-                        punti[i] += 3
-                    elif g2 > g1:
-                        punti[j] += 3
-                    else:
-                        punti[i] += 1
-                        punti[j] += 1
+                    diff = g1 - g2
+
+                    punti[i] += 3 * (diff > 0) + 1 * (diff == 0)
+                    punti[j] += 3 * (diff < 0) + 1 * (diff == 0)
 
                     if salva_prima_sim and sim == 0:
                         rows_debug.append({
@@ -528,24 +515,21 @@ def montecarlo_calendari(df_reale, n_sim=50000, salva_prima_sim=False):
                         })
 
                 giornata += 1
+                if giornata > max_giornata:
+                    break
 
         punti_mc[sim] = punti
 
-        # =========================
-        # POSIZIONI (🔥 FIX)
-        # =========================
+        # ranking
         rank = (-punti).argsort().argsort() + 1
         posizioni[sim] = rank
 
-        # =========================
-        # VINCITORE
-        # =========================
+        # vincitore
         max_punti = np.max(punti)
         candidate = np.where(punti == max_punti)[0]
 
         if len(candidate) > 1:
-            punteggi_candidate = punteggi_tot[candidate]
-            winner = candidate[np.argmax(punteggi_candidate)]
+            winner = candidate[np.argmax(punteggi_tot[candidate])]
         else:
             winner = candidate[0]
 
@@ -554,9 +538,7 @@ def montecarlo_calendari(df_reale, n_sim=50000, salva_prima_sim=False):
         if salva_prima_sim and sim == 0:
             prima_simulazione = pd.DataFrame(rows_debug)
 
-    # =========================
-    # RISULTATI FINALI
-    # =========================
+    # RISULTATI
     risultati = []
 
     punti_reali_dict = dict(
@@ -564,21 +546,17 @@ def montecarlo_calendari(df_reale, n_sim=50000, salva_prima_sim=False):
     )
 
     for squadra in squadre:
-
         idx = squad_index[squadra]
 
         distribuzione = punti_mc[:, idx]
-        media = np.mean(distribuzione)
 
+        media = np.mean(distribuzione)
         punti_reali = punti_reali_dict.get(squadra, 0)
 
         percentile = np.mean(distribuzione <= punti_reali) * 100
         win_mc = (vittorie[idx] / n_sim) * 100
-
-        # 🔥 MEDIA POSIZIONE
         pos_media = np.mean(posizioni[:, idx])
 
-        # 🔥 PROBABILITÀ POS ≤ REALE
         pos_reale = classifica_reale.loc[
             classifica_reale['squadra'] == squadra, 'posizione_reale'
         ].values[0]
@@ -659,10 +637,12 @@ def inverti_calendario_sas_style(calendario, squadra_a, squadra_b):
             # Nessuna delle due squadre in questa giornata, copia così com'è
             result.append({
                 'num_giornata': num_giornata,
-                'squadra1': s1,
-                'squadra2': s2,
-                'gol1': g1,
-                'gol2': g2
+                'squadra1': new_s1,
+                'squadra2': new_s2,
+                'gol1': new_g1,
+                'gol2': new_g2,
+                'punteggio1': 0,
+                'punteggio2': 0
             })
             continue
             
@@ -697,7 +677,9 @@ def inverti_calendario_sas_style(calendario, squadra_a, squadra_b):
             'squadra1': new_s1,
             'squadra2': new_s2,
             'gol1': new_g1,
-            'gol2': new_g2
+            'gol2': new_g2,
+            'punteggio1': 0,
+            'punteggio2': 0
         })
     
     return pd.DataFrame(result)
@@ -858,6 +840,7 @@ def upload_file():
             
         except Exception as e:
             import traceback
+            print(traceback.format_exc())
             return jsonify({
                 'success': False,
                 'message': f'Errore: {str(e)}',
