@@ -763,6 +763,16 @@ def upload_file():
             
             # 3. Calcola classifiche
             df_confronto = calcola_confronto(df_calendario_reale, df_fantasy_long)
+            
+            # Adatta n_sim in base al numero di squadre
+            n_squadre = len(ultime_squadre)
+            if n_squadre <= 12:
+                n_sim = 10000
+            elif n_squadre <= 16:
+                n_sim = 5000
+            else:
+                n_sim = 2000  # Per 20 squadre, meno simulazioni ma ancora robusto
+
             df_mc, prima_sim = montecarlo_calendari(
                 df_calendario_reale,
                 salva_prima_sim=True
@@ -770,7 +780,6 @@ def upload_file():
 
             df_confronto = df_confronto.merge(df_mc, on='squadra', how='left')
 
-            #Montecarlo
             df_confronto['delta_pos_mc'] = (
                 df_confronto['posizione_reale'] - df_confronto['posizione_media_mc']
             )
