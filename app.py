@@ -769,9 +769,9 @@ def upload_file():
             if n_squadre <= 12:
                 n_sim = 10000
             elif n_squadre <= 16:
-                n_sim = 5000
+                n_sim = 1000
             else:
-                n_sim = 1000  # Per 20 squadre, meno simulazioni ma ancora robusto
+                n_sim = 500  # Per 20 squadre, meno simulazioni ma ancora robusto
 
             df_mc, prima_sim = montecarlo_calendari(
                 df_calendario_reale,
