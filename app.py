@@ -429,7 +429,7 @@ def genera_round_robin_random(teams):
 
     return rounds
 
-def montecarlo_calendari(df_reale, n_sim=100, salva_prima_sim=False):
+def montecarlo_calendari(df_reale, n_sim=10000, salva_prima_sim=False):
     import numpy as np
     import random
     import math
@@ -439,6 +439,7 @@ def montecarlo_calendari(df_reale, n_sim=100, salva_prima_sim=False):
     squadre = sorted(set(df_reale['squadra1']).union(df_reale['squadra2']))
     N = len(squadre)
     squad_index = {s: i for i, s in enumerate(squadre)}
+    idx_to_squad = {i: s for s, i in squad_index.items()}
 
     # NORMALIZZA GIORNATE
     df_reale = df_reale.copy()
@@ -446,8 +447,15 @@ def montecarlo_calendari(df_reale, n_sim=100, salva_prima_sim=False):
     df_reale['num_giornata'] -= (min_g - 1)
 
     max_giornata = int(df_reale['num_giornata'].max())
+    round_robin = N - 1
+    
+    # Calcola fino a quale multiplo di (N-1) andare
+    X = math.ceil(max_giornata / round_robin) * round_robin
+    blocchi = X // round_robin
 
+    # =========================
     # MATRICE GOL
+    # =========================
     gol_matrix = np.zeros((max_giornata + 1, N))
 
     for _, r in df_reale.iterrows():
@@ -455,80 +463,112 @@ def montecarlo_calendari(df_reale, n_sim=100, salva_prima_sim=False):
         gol_matrix[g, squad_index[r['squadra1']]] = r['gol1']
         gol_matrix[g, squad_index[r['squadra2']]] = r['gol2']
 
+    # =========================
     # TIEBREAK
+    # =========================
     punteggi_tot = np.zeros(N)
     for _, r in df_reale.iterrows():
         i = squad_index[r['squadra1']]
         j = squad_index[r['squadra2']]
-
         p1 = float(r['punteggio1']) if pd.notna(r['punteggio1']) else 0
         p2 = float(r['punteggio2']) if pd.notna(r['punteggio2']) else 0
-
         punteggi_tot[i] += p1
         punteggi_tot[j] += p2
 
-    # ROUND ROBIN LOGICA ORIGINALE
-    round_robin = N - 1
-    X = math.ceil(max_giornata / round_robin) * round_robin
-    blocchi = X // round_robin
-
+    # =========================
+    # PREALLOC RISULTATI
+    # =========================
     punti_mc = np.zeros((n_sim, N))
     posizioni = np.zeros((n_sim, N))
     vittorie = np.zeros(N)
-
+    
     prima_simulazione = None
+    rows_debug = [] if salva_prima_sim else None
 
+    # =========================
+    # GENERATORE FAST ROUND ROBIN (INDICI)
+    # =========================
+    def fast_round_robin_idx():
+        """Genera un round-robin random usando solo indici numerici"""
+        teams = list(range(N))
+        random.shuffle(teams)
+        
+        if N % 2 == 1:
+            teams.append(-1)
+            n = N + 1
+        else:
+            n = N
+        
+        rounds = []
+        for _ in range(n - 1):
+            pairs = []
+            for i in range(n // 2):
+                t1 = teams[i]
+                t2 = teams[n - 1 - i]
+                if t1 != -1 and t2 != -1:
+                    pairs.append((t1, t2))
+            rounds.append(pairs)
+            # Rotazione: primo fisso, ultimo diventa secondo, il resto shifta
+            teams = [teams[0]] + [teams[-1]] + teams[1:-1]
+        
+        random.shuffle(rounds)  # Mescola l'ordine delle giornate
+        return rounds
+
+    # =========================
+    # MONTECARLO OTTIMIZZATO
+    # =========================
     for sim in range(n_sim):
-
         punti = np.zeros(N)
         giornata = 1
-        rows_debug = []
 
+        # Per ogni blocco, genera nuovo calendario random
         for _ in range(blocchi):
-
-            rr = genera_round_robin_random(squadre)
+            rr = fast_round_robin_idx()
 
             for matches in rr:
-                for s1, s2 in matches:
+                if giornata > max_giornata:
+                    break
 
-                    if giornata > max_giornata:
-                        break
+                # Estrazione vettorizzata dei gol per questa giornata
+                g1_all = gol_matrix[giornata, :]
+                
+                for i, j in matches:
+                    g1 = g1_all[i]
+                    g2 = g1_all[j]
 
-                    i = squad_index[s1]
-                    j = squad_index[s2]
-
-                    g1 = gol_matrix[giornata, i]
-                    g2 = gol_matrix[giornata, j]
-
+                    # Calcolo punti con operazioni vettorizzate
                     diff = g1 - g2
-
-                    punti[i] += 3 * (diff > 0) + 1 * (diff == 0)
-                    punti[j] += 3 * (diff < 0) + 1 * (diff == 0)
+                    if diff > 0:
+                        punti[i] += 3
+                    elif diff < 0:
+                        punti[j] += 3
+                    else:
+                        punti[i] += 1
+                        punti[j] += 1
 
                     if salva_prima_sim and sim == 0:
                         rows_debug.append({
                             "num_giornata": giornata,
-                            "squadra1": s1,
-                            "squadra2": s2,
+                            "squadra1": idx_to_squad[i],
+                            "squadra2": idx_to_squad[j],
                             "gol1": g1,
                             "gol2": g2
                         })
 
                 giornata += 1
-                if giornata > max_giornata:
-                    break
 
         punti_mc[sim] = punti
 
-        # ranking
+        # Ranking argsort doppio (più veloce di sort)
         rank = (-punti).argsort().argsort() + 1
         posizioni[sim] = rank
 
-        # vincitore
+        # Vincitore con tiebreak
         max_punti = np.max(punti)
         candidate = np.where(punti == max_punti)[0]
-
+        
         if len(candidate) > 1:
+            # Tiebreak: massimo punteggio totale (fanta) nei confronti diretti
             winner = candidate[np.argmax(punteggi_tot[candidate])]
         else:
             winner = candidate[0]
@@ -538,29 +578,24 @@ def montecarlo_calendari(df_reale, n_sim=100, salva_prima_sim=False):
         if salva_prima_sim and sim == 0:
             prima_simulazione = pd.DataFrame(rows_debug)
 
-    # RISULTATI
+    # =========================
+    # RISULTATI FINALI
+    # =========================
     risultati = []
-
-    punti_reali_dict = dict(
-        zip(classifica_reale['squadra'], classifica_reale['punti_reali'])
-    )
+    punti_reali_dict = dict(zip(classifica_reale['squadra'], classifica_reale['punti_reali']))
+    pos_reali_dict = dict(zip(classifica_reale['squadra'], classifica_reale['posizione_reale']))
 
     for squadra in squadre:
         idx = squad_index[squadra]
-
         distribuzione = punti_mc[:, idx]
 
         media = np.mean(distribuzione)
         punti_reali = punti_reali_dict.get(squadra, 0)
+        pos_reale = pos_reali_dict.get(squadra, 0)
 
         percentile = np.mean(distribuzione <= punti_reali) * 100
         win_mc = (vittorie[idx] / n_sim) * 100
         pos_media = np.mean(posizioni[:, idx])
-
-        pos_reale = classifica_reale.loc[
-            classifica_reale['squadra'] == squadra, 'posizione_reale'
-        ].values[0]
-
         prob_peggio = np.mean(posizioni[:, idx] >= pos_reale) * 100
 
         risultati.append({
@@ -576,8 +611,7 @@ def montecarlo_calendari(df_reale, n_sim=100, salva_prima_sim=False):
 
     if salva_prima_sim:
         return df_ris, prima_simulazione
-    else:
-        return df_ris
+    return df_ris
         
 def inverti_calendario_sas_style(calendario, squadra_a, squadra_b):
     """
