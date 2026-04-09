@@ -1,4 +1,4 @@
-# app.py - COMPLETO CON MODIFICHE
+# app.py - COMPLETO SENZA PRIMA SIMULAZIONE
 from flask import Flask, render_template, request, jsonify, send_file
 import pandas as pd
 import os
@@ -429,7 +429,7 @@ def genera_round_robin_random(teams):
 
     return rounds
 
-def montecarlo_calendari(df_reale, n_sim=10000, salva_prima_sim=False):
+def montecarlo_calendari(df_reale, n_sim=10000):
     import numpy as np
     import random
     import math
@@ -439,7 +439,6 @@ def montecarlo_calendari(df_reale, n_sim=10000, salva_prima_sim=False):
     squadre = sorted(set(df_reale['squadra1']).union(df_reale['squadra2']))
     N = len(squadre)
     squad_index = {s: i for i, s in enumerate(squadre)}
-    idx_to_squad = {i: s for s, i in squad_index.items()}
 
     # NORMALIZZA GIORNATE
     df_reale = df_reale.copy()
@@ -481,9 +480,6 @@ def montecarlo_calendari(df_reale, n_sim=10000, salva_prima_sim=False):
     punti_mc = np.zeros((n_sim, N))
     posizioni = np.zeros((n_sim, N))
     vittorie = np.zeros(N)
-    
-    prima_simulazione = None
-    rows_debug = [] if salva_prima_sim else None
 
     # =========================
     # GENERATORE FAST ROUND ROBIN (INDICI)
@@ -546,15 +542,6 @@ def montecarlo_calendari(df_reale, n_sim=10000, salva_prima_sim=False):
                         punti[i] += 1
                         punti[j] += 1
 
-                    if salva_prima_sim and sim == 0:
-                        rows_debug.append({
-                            "num_giornata": giornata,
-                            "squadra1": idx_to_squad[i],
-                            "squadra2": idx_to_squad[j],
-                            "gol1": g1,
-                            "gol2": g2
-                        })
-
                 giornata += 1
 
         punti_mc[sim] = punti
@@ -574,9 +561,6 @@ def montecarlo_calendari(df_reale, n_sim=10000, salva_prima_sim=False):
             winner = candidate[0]
 
         vittorie[winner] += 1
-
-        if salva_prima_sim and sim == 0:
-            prima_simulazione = pd.DataFrame(rows_debug)
 
     # =========================
     # RISULTATI FINALI
@@ -608,9 +592,6 @@ def montecarlo_calendari(df_reale, n_sim=10000, salva_prima_sim=False):
         })
 
     df_ris = pd.DataFrame(risultati)
-
-    if salva_prima_sim:
-        return df_ris, prima_simulazione
     return df_ris
         
 def inverti_calendario_sas_style(calendario, squadra_a, squadra_b):
@@ -655,7 +636,7 @@ def inverti_calendario_sas_style(calendario, squadra_a, squadra_b):
             })
     squadra_sel2 = pd.DataFrame(squadra_sel2)
     
-    # Step 3: Merge in selezionate (equivalente a merge squadra_sel: in SAS)
+    # Step 3: Merge in selezionate
     selezionate = pd.merge(squadra_sel1, squadra_sel2, on='giornata', how='outer')
     
     # Step 4: 4 left join per creare calendario_invertito
@@ -665,46 +646,33 @@ def inverti_calendario_sas_style(calendario, squadra_a, squadra_b):
         s1, s2 = row['squadra1'], row['squadra2']
         g1, g2 = row['gol1'], row['gol2']
         
+        # Inizializza con valori originali
+        new_s1, new_s2 = s1, s2
+        new_g1, new_g2 = g1, g2
+        
         # Trova i dati in selezionate per questa giornata
         sel = selezionate[selezionate['giornata'] == num_giornata]
-        if len(sel) == 0:
-            # Nessuna delle due squadre in questa giornata, copia così com'è
-            result.append({
-                'num_giornata': num_giornata,
-                'squadra1': new_s1,
-                'squadra2': new_s2,
-                'gol1': new_g1,
-                'gol2': new_g2,
-                'punteggio1': 0,
-                'punteggio2': 0
-            })
-            continue
+        
+        if len(sel) > 0:
+            sel = sel.iloc[0]
             
-        sel = sel.iloc[0]
-        
-        # Caso b11: squadra1 è team1 (squadra_a) → diventa team2 (squadra_b) con reti2
-        if s1 == sel.get('team1'):
-            new_s1 = sel.get('team2')
-            new_g1 = sel.get('reti2')
-        # Caso b12: squadra1 è team2 (squadra_b) → diventa team1 (squadra_a) con reti1
-        elif s1 == sel.get('team2'):
-            new_s1 = sel.get('team1')
-            new_g1 = sel.get('reti1')
-        else:
-            new_s1 = s1
-            new_g1 = g1
-        
-        # Caso b21: squadra2 è team1 (squadra_a) → diventa team2 (squadra_b) con reti2
-        if s2 == sel.get('team1'):
-            new_s2 = sel.get('team2')
-            new_g2 = sel.get('reti2')
-        # Caso b22: squadra2 è team2 (squadra_b) → diventa team1 (squadra_a) con reti1
-        elif s2 == sel.get('team2'):
-            new_s2 = sel.get('team1')
-            new_g2 = sel.get('reti1')
-        else:
-            new_s2 = s2
-            new_g2 = g2
+            # Caso b11: squadra1 è team1 (squadra_a) → diventa team2 (squadra_b) con reti2
+            if s1 == sel.get('team1'):
+                new_s1 = sel.get('team2')
+                new_g1 = sel.get('reti2')
+            # Caso b12: squadra1 è team2 (squadra_b) → diventa team1 (squadra_a) con reti1
+            elif s1 == sel.get('team2'):
+                new_s1 = sel.get('team1')
+                new_g1 = sel.get('reti1')
+            
+            # Caso b21: squadra2 è team1 (squadra_a) → diventa team2 (squadra_b) con reti2
+            if s2 == sel.get('team1'):
+                new_s2 = sel.get('team2')
+                new_g2 = sel.get('reti2')
+            # Caso b22: squadra2 è team2 (squadra_b) → diventa team1 (squadra_a) con reti1
+            elif s2 == sel.get('team2'):
+                new_s2 = sel.get('team1')
+                new_g2 = sel.get('reti1')
         
         result.append({
             'num_giornata': num_giornata,
@@ -767,17 +735,13 @@ def upload_file():
             # Adatta n_sim in base al numero di squadre
             n_squadre = len(ultime_squadre)
             if n_squadre <= 12:
-                n_sim = 10000
+                n_sim = 12000
             elif n_squadre <= 16:
-                n_sim = 4000
+                n_sim = 6000
             else:
-                n_sim = 1000  # Per 20 squadre, meno simulazioni ma ancora robusto
+                n_sim = 2000  # Per 20 squadre, meno simulazioni ma ancora robusto
 
-            df_mc, prima_sim = montecarlo_calendari(
-                df_calendario_reale,
-                n_sim=n_sim,
-                salva_prima_sim=False
-            )
+            df_mc = montecarlo_calendari(df_calendario_reale, n_sim=n_sim)
 
             df_confronto = df_confronto.merge(df_mc, on='squadra', how='left')
 
@@ -822,7 +786,6 @@ def upload_file():
             output_fantasy = f"calendario_fantasy_{timestamp}.xlsx"
             output_confronto = f"confronto_classifiche_{timestamp}.xlsx"
             output_forza = f"forza_avversari_{timestamp}.xlsx"
-            output_sim = f"prima_simulazione_mc_{timestamp}.xlsx"
             
             df_fantasy_export = df_fantasy_long[[
                 'squadra', 'avversario', 'giornata', 'punteggio', 'punti_ottenuti'
@@ -832,10 +795,6 @@ def upload_file():
             df_fantasy_export.to_excel(os.path.join(app.config['UPLOAD_FOLDER'], output_fantasy), index=False)
             df_confronto.to_excel(os.path.join(app.config['UPLOAD_FOLDER'], output_confronto), index=False)
             df_forza_avversari.to_excel(os.path.join(app.config['UPLOAD_FOLDER'], output_forza), index=False)
-            prima_sim.to_excel(
-                os.path.join(app.config['UPLOAD_FOLDER'], output_sim),
-                index=False
-            )
 
             stats = {
                 'nome_lega': nome_lega,
@@ -846,6 +805,7 @@ def upload_file():
                 'partite_per_squadra': int(num_squadre - 1),
                 'media_punti': media_punti,
                 'elenco_squadre': ultime_squadre,
+                'n_sim': n_sim,
                 'piu_fortunato': {
                     'squadra': piu_fortunato['squadra'],
                     'saldo': round(piu_fortunato['delta_pos_mc'], 2)
@@ -878,7 +838,6 @@ def upload_file():
                 'output_fantasy': output_fantasy,
                 'output_confronto': output_confronto,
                 'output_forza': output_forza,
-                'output_simulazione': output_sim,
                 'stats': stats
             })
             

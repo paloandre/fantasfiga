@@ -470,45 +470,6 @@
             color: #e65100;
         }
 
-        /* Download */
-        .download-section {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 2px solid #e9ecef;
-            flex-wrap: wrap;
-        }
-
-        .download-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 12px 25px;
-            border-radius: 25px;
-            font-weight: 600;
-            text-decoration: none;
-            transition: all 0.3s ease;
-            font-size: 14px;
-        }
-
-        .download-btn.reale { background: #e8f5e9; color: #2e7d32; }
-        .download-btn.fantasy { background: #e3f2fd; color: #1565c0; }
-        .download-btn.confronto { 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        .download-btn.forza {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .download-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.2);
-        }
-
         .error-message {
             background: #ffebee;
             color: #c62828;
@@ -537,7 +498,7 @@
                 <p style="margin-top: 5px;">Una volta caricato il file, vedrai:</p>
                 <ul>
                     <li>La classifica corretta per il fattore culo-calendario</li>
-                    <li>Un'analisi sui gol segnati dagli avversari di un utente</li>
+                    <li>Un'analisi sui gol segnati</li>
                     <li>La classifica invertendo i calendari di due squadre</li>
                 </ul>
                 <p style="text-decoration: underline; margin-top: 10px; font-size: 12px; opacity: 0.8;">
@@ -636,7 +597,9 @@
             const posXP = {};
             classificaOrdinata.forEach((row, i) => {
                 posXP[row.squadra] = i + 1;
-            });    
+            });
+
+            const nSim = data.stats.n_sim;
 
             const valoriCulo = data.stats.confronto.map(r => Math.abs(Math.round(2 * (r.percentile_mc - 50))));
             const influenzaCulo = Math.round(valoriCulo.reduce((a,b)=>a+b,0) / valoriCulo.length);
@@ -796,41 +759,42 @@
                                     ad affrontare in quella specifica giornata.<br>
                                 Da questa considerazione nasce, spontanea, una osservazione (soprattutto dopo una mancata vittoria con uno
                                     dei punteggi più alti di giornata): <strong>"se il calendario fosse stato diverso, avrei vinto!"</strong><br>
-                                Per cui . E, usando un computer, è molto semplice ottenere l'informazione
-                                    ed infine sintetizzarla usando<span class="soglia-highlight">la media aritmetica dei punti ottenuti</span>.<br>
+                                Il calendario sorteggiato, infatti, è soltanto uno dell'infinità di calendari possibili. Usando un computer,
+                                    è molto semplice simulare il sorteggio di tanti calendari diversi e, di conseguenza, stilare tante classifiche diverse,
+                                    in modo che attraverso<span class="soglia-highlight">la media aritmetica dei punti ottenuti</span>sia
+                                    possibile ottenere un valore che sia "depurato" dal fattore calendario.<br>
                                 Riassumendo: <br>
-                                • sono stati ottenuti i risultati di 5000 calendari diversi usando i punteggi reali maturati nella lega
+                                • sono stati ottenuti i risultati di ${nSim} calendari diversi usando i punteggi reali maturati nella lega
                                     caricata dall'utente.<br>
-                                • è stata calcolata la media-punti delle 5000 classifiche per ogni partecipante.<br>
+                                • è stata calcolata la media-punti delle ${nSim} classifiche per ogni partecipante.<br>
                                 • è stata calcolata una classifica "corretta" per il fattore culo-calendario usando questa media-punti.<br>
                                 
                                 <p style="margin-top: 20px; font-size: 14px; text-decoration: underline">Cosa vedo nella tabella<p><br>
                                 • <strong>Expected ranking</strong>: posizione nella classifica corretta.<br>
                                 • <strong>Punteggio totale</strong>: somma dei punteggi di ogni giornata.<br>
                                 • <strong>Punti reali</strong>: punti ottenuti nel calendario reale su Leghe Fantacalcio.<br>
-                                • <strong>Expected Points</strong>: media-punti delle 5000 classifiche.<br>
+                                • <strong>Expected Points</strong>: media-punti delle ${nSim} classifiche.<br>
                                 • <strong>Saldo punti</strong>: differenza tra punti reali ed Expected Points. Positivo significa overperformance,
                                     quindi il partecipante ha fatto meglio rispetto alle attese.<br>
                                 • <strong>Saldo posizioni</strong>: differenza tra posizione reale ed Expected Ranking. Positivo significa overperformance,
                                     quindi il partecipante si trova in una posizione di classifica migliore rispetto alle attese.<br>
                                 • <strong>Culo/Sfiga</strong>: valore normalizzato (-100 / +100) sulla sfiga/fortuna dovuta al calendario.
                                     Il valore è normalizzato per permettere il confronto con altre leghe. Per approfondirne il calcolo, cliccare 
-                                    Per approfondirne il calcolo, cliccare 
                                         <a href="javascript:void(0);" onclick="toggleExplanation()" style="text-decoration: underline; color: #764ba2; font-weight:bold;">QUI</a>.<br>
                                         <div id="explanationBlock" style="display:none; margin-top:5px; margin-left:15px; font-size:11px;
                                                 line-height:1.4; background-color: rgba(240,215,20,0.4);">
-                                            <p>La distribuzione dei 5000 punti ottenuti nelle altrettante classifiche è normale, o comunque ha senso supporla tale.
+                                            <p>La distribuzione dei ${nSim} punti ottenuti nelle altrettante classifiche è normale, o comunque ha senso supporla tale.
                                                 Il numero è ottenuto così: il doppio della differenza assoluta tra il percentile dello Z-score del
-                                                valore reale all'interno della distribuzione Montecarlo e 0.5. L'idea è considerare come punto 0 la media (percentile 0.5) e considerare
-                                                come "quantità di fortuna" lo scostamento da lì verso la coda. Considerando le due metà separatamente, il valore è raddoppiato
-                                                per avere il range 0%-100%.</p>
+                                                valore reale all'interno della distribuzione Montecarlo e 0.5. L'idea è, avendo come punto 0 la media (percentile 0.5), quella di considerare
+                                                come "quantità di fortuna" lo scostamento da lì verso la coda. Poichè ragioniamo sulle due metà separatamente, il valore è raddoppiato
+                                                per avere il range -100/+100.</p>
                                         </div>.<br>
-                                • <strong>% 1° pos</strong>: è la probabilità che l'utente si trovi primo in classifica. Il calcolo è il numero di classifiche
-                                    nelle quali è 1° diviso le 5000 ripetizioni.<br>
-                                • <strong>% pos reale</strong>: è la probabilità che l'utente si trovi in una posizione di classifica inferiore o uguale
+                                • <strong>Probabilità 1° posto</strong>: è la probabilità che l'utente si trovi primo in classifica. Il calcolo è il numero di classifiche
+                                    nelle quali è 1° diviso le ${nSim} ripetizioni.<br>
+                                • <strong>Probabilità posizione reale</strong>: è la probabilità che l'utente si trovi in una posizione di classifica inferiore o uguale
                                     a quella reale. Numeri bassi indicano sfortuna (è improbabile essere così indietro), numeri alti indicano culo
                                     (è improbabile fare meglio di così).<br>
-                                • <strong>Influenza del culo nella lega</strong>: è la media dei valori assoluti della colonna Culo/Sfiga,
+                                • <strong>Influenza del culo-calendario nella lega</strong>: è la media dei valori assoluti della colonna Culo/Sfiga,
                                     pensata per poter comparare le leghe tra loro.<br>
                             </div>
 
@@ -848,16 +812,16 @@
                                 <table class="classifica-table">
                                     <thead>
                                         <tr>
-                                            <th>Expected Ranking</th>
-                                            <th>Squadra</th>
-                                            <th>Punteggio Totale</th>
-                                            <th>Punti Reali</th>
-                                            <th>Expected Points</th>
-                                            <th>Saldo Punti</th>
-                                            <th>Saldo Posizioni</th>
-                                            <th>Culo/Sfiga</th>
-                                            <th>Probabilità 1° posto</th>
-                                            <th>Probabilità posizione reale</th>
+                                            <th title="Posizione attesa nella classifica calcolata con la media dei punti">Expected Ranking</th>
+                                            <th title="Squadra">Squadra</th>
+                                            <th title="Somma reale di tutti i punteggi ottenuti nelle singole giornate">Punteggio Totale</th>
+                                            <th title="Punti reali">Punti Reali</th>
+                                            <th title="Media dei punti ottenuti nelle simulazioni">Expected Points</th>
+                                            <th title="Differenza tra Punti Reali e Expected Points">Saldo Punti</th>
+                                            <th title="Differenza tra posizione reale e Expected Ranking">Saldo Posizioni</th>
+                                            <th title="Valore normalizzato (-100% a +100%) che quantifica la fortuna/sfortuna dovuta al calendario">Culo/Sfiga</th>
+                                            <th title="Percentuale di simulazioni in cui la squadra ha vinto il campionato (1° posto)">Probabilità 1° posto>Probabilità 1° posto</th>
+                                            <th title="Probabilità di finire in una posizione inferiore o uguale a quella reale">Probabilità posizione reale</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -964,27 +928,6 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    
-                    <div class="download-section">
-                        <a href="/uploads/${data.output_reale}" class="download-btn reale" download>
-                            📥 Reale
-                        </a>
-                        <a href="/uploads/${data.output_fantasy}" class="download-btn fantasy" download>
-                            ⚡ Fantasy
-                        </a>
-                        <a href="/uploads/${data.output_confronto}" class="download-btn confronto" download>
-                            📊 Confronto
-                        </a>
-                        <a href="/uploads/${data.output_forza}" class="download-btn forza" download>
-                            🎯 Forza Avversari
-                        </a>
-
-                        ${data.output_simulazione ? `
-                        <a href="/uploads/${data.output_simulazione}" class="download-btn confronto" download>
-                            🎲 Prima simulazione Montecarlo
-                        </a>
-                        ` : ``}
                     </div>
                 </div>
             `;
